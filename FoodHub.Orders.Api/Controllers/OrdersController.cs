@@ -13,10 +13,12 @@ namespace FoodHub.Orders.Api.Controllers;
 public sealed class OrdersController : ControllerBase
 {
     private readonly IOrderRepository _repository;
+    private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(IOrderRepository repository)
+    public OrdersController(IOrderRepository repository, ILogger<OrdersController> logger)
     {
         _repository = repository;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -41,6 +43,7 @@ public sealed class OrdersController : ControllerBase
                 : new Coupon(request.CouponCode));
 
         var created = await _repository.AddAsync(order, cancellationToken);
+        LogDomainEvents(order);
 
         return CreatedAtAction(nameof(GetById), new { id = created.OrderId }, MapOrderResponse(created));
     }
@@ -136,7 +139,9 @@ public sealed class OrdersController : ControllerBase
                 ? null
                 : new Coupon(request.CouponCode));
 
+        updated.MarkUpdated();
         var saved = await _repository.UpdateAsync(updated, cancellationToken);
+        LogDomainEvents(updated);
 
         return Ok(MapOrderResponse(saved));
     }
@@ -194,6 +199,7 @@ public sealed class OrdersController : ControllerBase
         order.Cancel();
 
         var saved = await _repository.UpdateAsync(order, cancellationToken);
+        LogDomainEvents(order);
         return Ok(MapOrderResponse(saved));
     }
 
@@ -235,6 +241,7 @@ public sealed class OrdersController : ControllerBase
         order.ChangeStatus(request.Status);
 
         var saved = await _repository.UpdateAsync(order, cancellationToken);
+        LogDomainEvents(order);
         return Ok(MapOrderResponse(saved));
     }
 
@@ -286,5 +293,14 @@ public sealed class OrdersController : ControllerBase
             order.Status,
             order.Type,
             order.Version);
+    }
+
+    private void LogDomainEvents(Order order)
+    {
+        var events = order.DequeueDomainEvents();
+        foreach (var domainEvent in events)
+        {
+            _logger.LogInformation("Domain event: {EventType} {@Event}", domainEvent.GetType().Name, domainEvent);
+        }
     }
 }

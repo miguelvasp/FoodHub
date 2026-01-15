@@ -1,4 +1,5 @@
 using FoodHub.Orders.Domain.Entities;
+using FoodHub.Orders.Domain.Events;
 using FoodHub.Orders.Domain.Exceptions;
 using FoodHub.Orders.Domain.ValueObjects;
 
@@ -18,6 +19,7 @@ public sealed class Order
         };
 
     private readonly List<OrderItem> _items;
+    private readonly List<IDomainEvent> _domainEvents = new();
 
     private Order(
         Guid orderId,
@@ -73,6 +75,8 @@ public sealed class Order
 
     public int Version { get; private set; }
 
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
     public static Order Create(
         string orderCode,
         DateTime createdAt,
@@ -110,7 +114,7 @@ public sealed class Order
 
         var itemList = items?.ToList() ?? new List<OrderItem>();
 
-        return new Order(
+        var order = new Order(
             Guid.NewGuid(),
             orderCode.Trim(),
             createdAt,
@@ -122,6 +126,8 @@ public sealed class Order
             itemList,
             OrderStatus.Pending,
             0);
+        order.AddDomainEvent(new OrderCreatedEvent(order.CreateSnapshot(), DateTime.UtcNow));
+        return order;
     }
 
     public static Order Rehydrate(
@@ -208,6 +214,7 @@ public sealed class Order
         }
 
         _items.Remove(item);
+        AddDomainEvent(new ItemRemovedEvent(CreateSnapshot(), item.Product, DateTime.UtcNow));
         RecalculateTotals();
     }
 
@@ -240,7 +247,14 @@ public sealed class Order
                 $"Invalid status transition from {Status} to {newStatus}.");
         }
 
+        var previousStatus = Status;
         Status = newStatus;
+        AddDomainEvent(new StatusChangedEvent(CreateSnapshot(), previousStatus, newStatus, DateTime.UtcNow));
+
+        if (newStatus == OrderStatus.Confirmed)
+        {
+            AddDomainEvent(new OrderConfirmedEvent(CreateSnapshot(), DateTime.UtcNow));
+        }
     }
 
     public void Cancel()
@@ -251,6 +265,7 @@ public sealed class Order
         }
 
         ChangeStatus(OrderStatus.Cancelled);
+        AddDomainEvent(new OrderCancelledEvent(CreateSnapshot(), DateTime.UtcNow));
     }
 
     public void UpdateDeliveryFee(decimal deliveryFee)
@@ -282,5 +297,34 @@ public sealed class Order
         var baseTotal = _items.Sum(item => item.TotalItemValue) + DeliveryFee;
         var discount = baseTotal * 0.10m;
         return Math.Round(discount, 2, MidpointRounding.AwayFromZero);
+    }
+
+    public void MarkUpdated()
+    {
+        AddDomainEvent(new OrderUpdatedEvent(CreateSnapshot(), DateTime.UtcNow));
+    }
+
+    public IReadOnlyList<IDomainEvent> DequeueDomainEvents()
+    {
+        var events = _domainEvents.ToList();
+        _domainEvents.Clear();
+        return events;
+    }
+
+    private void AddDomainEvent(IDomainEvent domainEvent)
+    {
+        _domainEvents.Add(domainEvent);
+    }
+
+    private OrderSnapshot CreateSnapshot()
+    {
+        return new OrderSnapshot(
+            OrderId,
+            OrderCode,
+            Status,
+            Type,
+            OrderTotal,
+            Customer,
+            Restaurant);
     }
 }
