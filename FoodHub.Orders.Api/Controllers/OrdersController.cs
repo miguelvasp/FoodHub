@@ -38,7 +38,7 @@ public sealed class OrdersController : ControllerBase
             request.Items.Select(MapOrderItem),
             string.IsNullOrWhiteSpace(request.CouponCode)
                 ? null
-                : new Coupon(request.CouponCode, 0m));
+                : new Coupon(request.CouponCode));
 
         var created = await _repository.AddAsync(order, cancellationToken);
 
@@ -134,7 +134,7 @@ public sealed class OrdersController : ControllerBase
             request.Version,
             string.IsNullOrWhiteSpace(request.CouponCode)
                 ? null
-                : new Coupon(request.CouponCode, 0m));
+                : new Coupon(request.CouponCode));
 
         var saved = await _repository.UpdateAsync(updated, cancellationToken);
 

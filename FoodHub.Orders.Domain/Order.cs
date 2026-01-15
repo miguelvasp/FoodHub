@@ -63,7 +63,7 @@ public sealed class Order
 
     public Coupon? Coupon { get; private set; }
 
-    public decimal DiscountValue => Coupon?.DiscountValue ?? 0m;
+    public decimal DiscountValue => CalculateDiscountValue();
 
     public decimal OrderTotal { get; private set; }
 
@@ -103,9 +103,9 @@ public sealed class Order
             throw new DomainValidationException("Delivery fee must be non-negative.");
         }
 
-        if (coupon is not null && coupon.DiscountValue < 0)
+        if (coupon is not null && string.IsNullOrWhiteSpace(coupon.Code))
         {
-            throw new DomainValidationException("Coupon discount must be non-negative.");
+            throw new DomainValidationException("Coupon code is required.");
         }
 
         var itemList = items?.ToList() ?? new List<OrderItem>();
@@ -162,9 +162,9 @@ public sealed class Order
             throw new DomainValidationException("Delivery fee must be non-negative.");
         }
 
-        if (coupon is not null && coupon.DiscountValue < 0)
+        if (coupon is not null && string.IsNullOrWhiteSpace(coupon.Code))
         {
-            throw new DomainValidationException("Coupon discount must be non-negative.");
+            throw new DomainValidationException("Coupon code is required.");
         }
 
         var itemList = items?.ToList() ?? new List<OrderItem>();
@@ -218,9 +218,9 @@ public sealed class Order
             throw new DomainValidationException("Coupon is required.");
         }
 
-        if (coupon.DiscountValue < 0)
+        if (string.IsNullOrWhiteSpace(coupon.Code))
         {
-            throw new DomainValidationException("Coupon discount must be non-negative.");
+            throw new DomainValidationException("Coupon code is required.");
         }
 
         Coupon = coupon;
@@ -267,7 +267,20 @@ public sealed class Order
     private void RecalculateTotals()
     {
         var itemsTotal = _items.Sum(item => item.TotalItemValue);
-        var total = itemsTotal + DeliveryFee - DiscountValue;
+        var baseTotal = itemsTotal + DeliveryFee;
+        var total = baseTotal - DiscountValue;
         OrderTotal = total < 0 ? 0 : total;
+    }
+
+    private decimal CalculateDiscountValue()
+    {
+        if (Coupon is null || string.IsNullOrWhiteSpace(Coupon.Code))
+        {
+            return 0m;
+        }
+
+        var baseTotal = _items.Sum(item => item.TotalItemValue) + DeliveryFee;
+        var discount = baseTotal * 0.10m;
+        return Math.Round(discount, 2, MidpointRounding.AwayFromZero);
     }
 }

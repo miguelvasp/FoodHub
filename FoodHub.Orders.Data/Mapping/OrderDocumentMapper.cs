@@ -42,8 +42,7 @@ public static class OrderDocumentMapper
                 ? null
                 : new CouponDocument
                 {
-                    Code = order.Coupon.Code,
-                    DiscountValue = order.Coupon.DiscountValue
+                    Code = order.Coupon.Code
                 },
             DiscountValue = order.DiscountValue,
             TotalValue = order.OrderTotal,
@@ -64,7 +63,7 @@ public static class OrderDocumentMapper
 
         var coupon = document.Coupon is null
             ? null
-            : new Coupon(document.Coupon.Code, document.Coupon.DiscountValue);
+            : new Coupon(document.Coupon.Code);
 
         return Order.Rehydrate(
             document.Id,

@@ -26,17 +26,17 @@ public class OrderTests
             OrderType.Delivery,
             deliveryFee: 4m,
             items,
-            new Coupon("OFF10", 3m));
+            new Coupon("OFF10"));
 
         order.OrderTotal.Should().Be(27m);
     }
 
     [Fact]
-    public void RecalculateTotals_ShouldNeverAllowNegativeTotal()
+    public void RecalculateTotals_ShouldApplyTenPercentDiscount()
     {
         var items = new List<OrderItem>
         {
-            new(new ProductSnapshot("prod-1", "Burger"), 1, 5m, 0m, null)
+            new(new ProductSnapshot("prod-1", "Burger"), 1, 10m, 0m, null)
         };
 
         var order = Order.Create(
@@ -45,11 +45,33 @@ public class OrderTests
             new CustomerSnapshot("cust-1", "Alice"),
             new RestaurantSnapshot("rest-1", "Main Street"),
             OrderType.Delivery,
-            deliveryFee: 0m,
+            deliveryFee: 5m,
             items,
-            new Coupon("BIG", 20m));
+            new Coupon("OFF10"));
 
-        order.OrderTotal.Should().Be(0m);
+        order.DiscountValue.Should().Be(1.50m);
+        order.OrderTotal.Should().Be(13.50m);
+    }
+
+    [Fact]
+    public void RecalculateTotals_ShouldNotApplyDiscountWhenCouponIsEmpty()
+    {
+        var items = new List<OrderItem>
+        {
+            new(new ProductSnapshot("prod-1", "Burger"), 1, 10m, 0m, null)
+        };
+
+        var order = Order.Create(
+            "ORD-102",
+            DateTime.UtcNow,
+            new CustomerSnapshot("cust-1", "Alice"),
+            new RestaurantSnapshot("rest-1", "Main Street"),
+            OrderType.Delivery,
+            deliveryFee: 5m,
+            items);
+
+        order.DiscountValue.Should().Be(0m);
+        order.OrderTotal.Should().Be(15m);
     }
 
     [Fact]
