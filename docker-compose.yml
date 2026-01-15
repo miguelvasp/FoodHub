@@ -1,0 +1,23 @@
+services:
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - Mongo__ConnectionString=mongodb://mongodb:27017
+      - Mongo__Database=foodhub_orders
+    depends_on:
+      - mongodb
+
+volumes:
+  mongo_data:
