@@ -27,8 +27,10 @@ docker compose up --build
 - Health: http://localhost:8080/health
 
 ## Variaveis de ambiente (Docker)
+- `ASPNETCORE_ENVIRONMENT=Development` (habilita Swagger)
 - `Mongo__ConnectionString` (ex.: `mongodb://mongodb:27017`)
 - `Mongo__Database` (ex.: `foodhub_orders`)
+- `HttpsRedirection__Enabled=false` (desativa redirecionamento HTTPS no container)
 
 ## Checklist (Definition of Done)
 - CRUD completo de pedidos com MongoDB
