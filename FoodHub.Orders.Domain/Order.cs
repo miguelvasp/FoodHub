@@ -28,7 +28,9 @@ public sealed class Order
         OrderType type,
         decimal deliveryFee,
         Coupon? coupon,
-        IEnumerable<OrderItem> items)
+        IEnumerable<OrderItem> items,
+        OrderStatus status,
+        int version)
     {
         OrderId = orderId;
         OrderCode = orderCode;
@@ -38,8 +40,8 @@ public sealed class Order
         Type = type;
         DeliveryFee = deliveryFee;
         Coupon = coupon;
-        Status = OrderStatus.Pending;
-        Version = 0;
+        Status = status;
+        Version = version;
 
         _items = new List<OrderItem>(items);
         RecalculateTotals();
@@ -117,7 +119,68 @@ public sealed class Order
             type,
             deliveryFee,
             coupon,
-            itemList);
+            itemList,
+            OrderStatus.Pending,
+            0);
+    }
+
+    public static Order Rehydrate(
+        Guid orderId,
+        string orderCode,
+        DateTime createdAt,
+        CustomerSnapshot customer,
+        RestaurantSnapshot restaurant,
+        OrderType type,
+        decimal deliveryFee,
+        IEnumerable<OrderItem> items,
+        OrderStatus status,
+        int version,
+        Coupon? coupon = null)
+    {
+        if (orderId == Guid.Empty)
+        {
+            throw new DomainValidationException("Order id is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(orderCode))
+        {
+            throw new DomainValidationException("Order code is required.");
+        }
+
+        if (customer is null)
+        {
+            throw new DomainValidationException("Customer snapshot is required.");
+        }
+
+        if (restaurant is null)
+        {
+            throw new DomainValidationException("Restaurant snapshot is required.");
+        }
+
+        if (deliveryFee < 0)
+        {
+            throw new DomainValidationException("Delivery fee must be non-negative.");
+        }
+
+        if (coupon is not null && coupon.DiscountValue < 0)
+        {
+            throw new DomainValidationException("Coupon discount must be non-negative.");
+        }
+
+        var itemList = items?.ToList() ?? new List<OrderItem>();
+
+        return new Order(
+            orderId,
+            orderCode.Trim(),
+            createdAt,
+            customer,
+            restaurant,
+            type,
+            deliveryFee,
+            coupon,
+            itemList,
+            status,
+            version);
     }
 
     public void AddItem(OrderItem item)
