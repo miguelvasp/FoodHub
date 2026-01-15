@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="FoodHub.Orders.Api/FoodHub.Orders.Api.csproj" />
+  <Project Path="FoodHub.Orders.Data/FoodHub.Orders.Data.csproj" />
+  <Project Path="FoodHub.Orders.Domain/FoodHub.Orders.Domain.csproj" />
+  <Project Path="FoodHub.Orders.Tests/FoodHub.Orders.Tests.csproj" />
+</Solution>
