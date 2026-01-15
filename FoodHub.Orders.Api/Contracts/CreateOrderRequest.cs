@@ -1,50 +1,50 @@
-using System.ComponentModel.DataAnnotations;
 using FoodHub.Orders.Domain;
+using System.ComponentModel.DataAnnotations;
 
 namespace FoodHub.Orders.Api.Contracts;
 
 public sealed record CreateOrderRequest(
-    [property: Required] string Code,
-    [property: Required] DateTime OrderedAt,
-    [property: Required] CustomerSnapshotRequest Customer,
-    [property: Required] RestaurantSnapshotRequest Restaurant,
-    [property: Required, MinLength(1)] List<OrderItemRequest> Items,
-    [property: Range(0, double.MaxValue)] decimal DeliveryFee,
+    [Required] string Code,
+    [Required] DateTime OrderedAt,
+    [Required] CustomerSnapshotRequest Customer,
+    [Required] RestaurantSnapshotRequest Restaurant,
+    [Required, MinLength(1)] List<OrderItemRequest> Items,
+    [Range(0, double.MaxValue)] decimal DeliveryFee,
     string? CouponCode,
-    [property: Required] OrderType OrderType);
+    [Required] OrderType OrderType);
 
 public sealed record UpdateOrderRequest(
-    [property: Required] DateTime OrderedAt,
-    [property: Required] CustomerSnapshotRequest Customer,
-    [property: Required] RestaurantSnapshotRequest Restaurant,
-    [property: Required, MinLength(1)] List<OrderItemRequest> Items,
-    [property: Range(0, double.MaxValue)] decimal DeliveryFee,
+    [Required] DateTime OrderedAt,
+    [Required] CustomerSnapshotRequest Customer,
+    [Required] RestaurantSnapshotRequest Restaurant,
+    [Required, MinLength(1)] List<OrderItemRequest> Items,
+    [Range(0, double.MaxValue)] decimal DeliveryFee,
     string? CouponCode,
-    [property: Required] OrderType OrderType,
-    [property: Range(0, int.MaxValue)] int Version);
-
-public sealed record OrderItemRequest(
-    [property: Required] ProductSnapshotRequest Product,
-    [property: Range(1, int.MaxValue)] int Quantity,
-    [property: Range(0, double.MaxValue)] decimal UnitPrice,
-    string? Notes,
-    [property: Range(0, double.MaxValue)] decimal AddonsValue);
-
-public sealed record CustomerSnapshotRequest(
-    [property: Required] string Id,
-    [property: Required] string Name);
-
-public sealed record RestaurantSnapshotRequest(
-    [property: Required] string Id,
-    [property: Required] string Name);
-
-public sealed record ProductSnapshotRequest(
-    [property: Required] string Id,
-    [property: Required] string Description);
+    [Required] OrderType OrderType,
+    [Range(0, int.MaxValue)] int Version);
 
 public sealed record CancelOrderRequest(
-    [property: Range(0, int.MaxValue)] int Version);
+    [Range(0, int.MaxValue)] int Version);
 
 public sealed record ChangeStatusRequest(
-    [property: Required] OrderStatus Status,
-    [property: Range(0, int.MaxValue)] int Version);
+    [Required] OrderStatus Status,
+    [Range(0, int.MaxValue)] int Version);
+
+public sealed record OrderItemRequest(
+    [Required] ProductSnapshotRequest Product,
+    [Range(1, int.MaxValue)] int Quantity,
+    [Range(0, double.MaxValue)] decimal UnitPrice,
+    string? Notes,
+    [Range(0, double.MaxValue)] decimal AddonsValue);
+
+public sealed record CustomerSnapshotRequest(
+    [Required] string Id,
+    [Required] string Name);
+
+public sealed record RestaurantSnapshotRequest(
+    [Required] string Id,
+    [Required] string Name);
+
+public sealed record ProductSnapshotRequest(
+    [Required] string Id,
+    [Required] string Description);

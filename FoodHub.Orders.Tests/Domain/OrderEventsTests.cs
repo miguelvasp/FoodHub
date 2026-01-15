@@ -1,8 +1,8 @@
+using FluentAssertions;
 using FoodHub.Orders.Domain;
 using FoodHub.Orders.Domain.Entities;
 using FoodHub.Orders.Domain.Events;
 using FoodHub.Orders.Domain.ValueObjects;
-using FluentAssertions;
 
 namespace FoodHub.Orders.Tests.Domain;
 
@@ -78,7 +78,8 @@ public class OrderEventsTests
             5m,
             new List<OrderItem>
             {
-                new(new ProductSnapshot("prod-1", "Burger"), 1, 10m, 0m, null)
+            new(new ProductSnapshot("prod-1", "Burger"), 1, 10m, 0m, null),
+            new(new ProductSnapshot("prod-2", "Fries"), 1, 5m, 0m, null)
             });
     }
 }
