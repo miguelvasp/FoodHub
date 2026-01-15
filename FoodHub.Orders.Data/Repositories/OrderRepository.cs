@@ -37,6 +37,45 @@ public sealed class OrderRepository : IOrderRepository
         return document is null ? null : OrderDocumentMapper.ToDomain(document);
     }
 
+    public async Task<IReadOnlyList<Order>> SearchAsync(
+        string? orderCode,
+        OrderStatus? status,
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default)
+    {
+        var filters = new List<FilterDefinition<OrderDocument>>();
+
+        if (!string.IsNullOrWhiteSpace(orderCode))
+        {
+            filters.Add(Builders<OrderDocument>.Filter.Eq(doc => doc.OrderCode, orderCode));
+        }
+
+        if (status.HasValue)
+        {
+            filters.Add(Builders<OrderDocument>.Filter.Eq(doc => doc.Status, status.Value));
+        }
+
+        if (from.HasValue)
+        {
+            filters.Add(Builders<OrderDocument>.Filter.Gte(doc => doc.OrderedAt, from.Value));
+        }
+
+        if (to.HasValue)
+        {
+            filters.Add(Builders<OrderDocument>.Filter.Lte(doc => doc.OrderedAt, to.Value));
+        }
+
+        var filter = filters.Count == 0
+            ? Builders<OrderDocument>.Filter.Empty
+            : Builders<OrderDocument>.Filter.And(filters);
+
+        var documents = await _collection.Find(filter)
+            .ToListAsync(cancellationToken);
+
+        return documents.Select(OrderDocumentMapper.ToDomain).ToList();
+    }
+
     public async Task<Order> UpdateAsync(Order order, CancellationToken cancellationToken = default)
     {
         var document = OrderDocumentMapper.FromDomain(order);
