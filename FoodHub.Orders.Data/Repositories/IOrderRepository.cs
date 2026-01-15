@@ -15,4 +15,5 @@ public interface IOrderRepository
         CancellationToken cancellationToken = default);
     Task<Order> UpdateAsync(Order order, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid orderId, CancellationToken cancellationToken = default);
+    Task DeleteByCodeAsync(string orderCode, CancellationToken cancellationToken = default);
 }

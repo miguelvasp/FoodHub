@@ -65,6 +65,26 @@ public sealed class OrdersController : ControllerBase
         return Ok(MapOrderResponse(order));
     }
 
+    [HttpGet("by-code/{code}")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderResponse>> GetByCode(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new DomainValidationException("Order code is required.");
+        }
+
+        var order = await _repository.GetByCodeAsync(code, cancellationToken);
+        if (order is null)
+        {
+            throw new NotFoundException("Order not found.");
+        }
+
+        return Ok(MapOrderResponse(order));
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<OrderResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<OrderResponse>>> Search(
@@ -133,6 +153,21 @@ public sealed class OrdersController : ControllerBase
         }
 
         await _repository.DeleteAsync(orderId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("by-code/{code}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteByCode(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new DomainValidationException("Order code is required.");
+        }
+
+        await _repository.DeleteByCodeAsync(code, cancellationToken);
         return NoContent();
     }
 

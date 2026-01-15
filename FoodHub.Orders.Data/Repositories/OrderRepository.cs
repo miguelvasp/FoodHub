@@ -116,6 +116,15 @@ public sealed class OrderRepository : IOrderRepository
         }
     }
 
+    public async Task DeleteByCodeAsync(string orderCode, CancellationToken cancellationToken = default)
+    {
+        var result = await _collection.DeleteOneAsync(doc => doc.OrderCode == orderCode, cancellationToken);
+        if (result.DeletedCount == 0)
+        {
+            throw new NotFoundException("Order not found.");
+        }
+    }
+
     private void CreateIndexes()
     {
         var keys = Builders<OrderDocument>.IndexKeys.Ascending(doc => doc.OrderCode);
