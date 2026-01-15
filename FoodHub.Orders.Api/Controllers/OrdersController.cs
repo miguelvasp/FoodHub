@@ -156,6 +156,88 @@ public sealed class OrdersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{id}/cancel")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<OrderResponse>> Cancel(
+        string id,
+        [FromBody] CancelOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(id, out var orderId))
+        {
+            throw new DomainValidationException("Invalid order id.");
+        }
+
+        var existing = await _repository.GetByIdAsync(orderId, cancellationToken);
+        if (existing is null)
+        {
+            throw new NotFoundException("Order not found.");
+        }
+
+        var order = Order.Rehydrate(
+            existing.OrderId,
+            existing.OrderCode,
+            existing.CreatedAt,
+            existing.Customer,
+            existing.Restaurant,
+            existing.Type,
+            existing.DeliveryFee,
+            existing.Items.ToList(),
+            existing.Status,
+            request.Version,
+            existing.Coupon);
+
+        order.Cancel();
+
+        var saved = await _repository.UpdateAsync(order, cancellationToken);
+        return Ok(MapOrderResponse(saved));
+    }
+
+    [HttpPatch("{id}/status")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<OrderResponse>> ChangeStatus(
+        string id,
+        [FromBody] ChangeStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(id, out var orderId))
+        {
+            throw new DomainValidationException("Invalid order id.");
+        }
+
+        var existing = await _repository.GetByIdAsync(orderId, cancellationToken);
+        if (existing is null)
+        {
+            throw new NotFoundException("Order not found.");
+        }
+
+        var order = Order.Rehydrate(
+            existing.OrderId,
+            existing.OrderCode,
+            existing.CreatedAt,
+            existing.Customer,
+            existing.Restaurant,
+            existing.Type,
+            existing.DeliveryFee,
+            existing.Items.ToList(),
+            existing.Status,
+            request.Version,
+            existing.Coupon);
+
+        order.ChangeStatus(request.Status);
+
+        var saved = await _repository.UpdateAsync(order, cancellationToken);
+        return Ok(MapOrderResponse(saved));
+    }
+
     [HttpDelete("by-code/{code}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

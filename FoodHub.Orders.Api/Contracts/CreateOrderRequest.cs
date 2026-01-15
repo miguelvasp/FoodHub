@@ -41,3 +41,10 @@ public sealed record RestaurantSnapshotRequest(
 public sealed record ProductSnapshotRequest(
     [property: Required] string Id,
     [property: Required] string Description);
+
+public sealed record CancelOrderRequest(
+    [property: Range(0, int.MaxValue)] int Version);
+
+public sealed record ChangeStatusRequest(
+    [property: Required] OrderStatus Status,
+    [property: Range(0, int.MaxValue)] int Version);
