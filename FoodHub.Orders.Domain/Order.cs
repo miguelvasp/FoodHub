@@ -1,0 +1,210 @@
+using FoodHub.Orders.Domain.Entities;
+using FoodHub.Orders.Domain.Exceptions;
+using FoodHub.Orders.Domain.ValueObjects;
+
+namespace FoodHub.Orders.Domain;
+
+public sealed class Order
+{
+    private static readonly IReadOnlyDictionary<OrderStatus, IReadOnlyCollection<OrderStatus>> AllowedTransitions =
+        new Dictionary<OrderStatus, IReadOnlyCollection<OrderStatus>>
+        {
+            { OrderStatus.Pending, new[] { OrderStatus.Confirmed, OrderStatus.Cancelled } },
+            { OrderStatus.Confirmed, new[] { OrderStatus.InPreparation, OrderStatus.Cancelled } },
+            { OrderStatus.InPreparation, new[] { OrderStatus.Ready, OrderStatus.Cancelled } },
+            { OrderStatus.Ready, new[] { OrderStatus.Delivered, OrderStatus.Cancelled } },
+            { OrderStatus.Delivered, Array.Empty<OrderStatus>() },
+            { OrderStatus.Cancelled, Array.Empty<OrderStatus>() }
+        };
+
+    private readonly List<OrderItem> _items;
+
+    private Order(
+        Guid orderId,
+        string orderCode,
+        DateTime createdAt,
+        CustomerSnapshot customer,
+        RestaurantSnapshot restaurant,
+        OrderType type,
+        decimal deliveryFee,
+        Coupon? coupon,
+        IEnumerable<OrderItem> items)
+    {
+        OrderId = orderId;
+        OrderCode = orderCode;
+        CreatedAt = createdAt;
+        Customer = customer;
+        Restaurant = restaurant;
+        Type = type;
+        DeliveryFee = deliveryFee;
+        Coupon = coupon;
+        Status = OrderStatus.Pending;
+        Version = 0;
+
+        _items = new List<OrderItem>(items);
+        RecalculateTotals();
+    }
+
+    public Guid OrderId { get; }
+
+    public string OrderCode { get; }
+
+    public DateTime CreatedAt { get; }
+
+    public CustomerSnapshot Customer { get; }
+
+    public RestaurantSnapshot Restaurant { get; }
+
+    public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
+
+    public decimal DeliveryFee { get; private set; }
+
+    public Coupon? Coupon { get; private set; }
+
+    public decimal DiscountValue => Coupon?.DiscountValue ?? 0m;
+
+    public decimal OrderTotal { get; private set; }
+
+    public OrderStatus Status { get; private set; }
+
+    public OrderType Type { get; private set; }
+
+    public int Version { get; private set; }
+
+    public static Order Create(
+        string orderCode,
+        DateTime createdAt,
+        CustomerSnapshot customer,
+        RestaurantSnapshot restaurant,
+        OrderType type,
+        decimal deliveryFee,
+        IEnumerable<OrderItem> items,
+        Coupon? coupon = null)
+    {
+        if (string.IsNullOrWhiteSpace(orderCode))
+        {
+            throw new DomainValidationException("Order code is required.");
+        }
+
+        if (customer is null)
+        {
+            throw new DomainValidationException("Customer snapshot is required.");
+        }
+
+        if (restaurant is null)
+        {
+            throw new DomainValidationException("Restaurant snapshot is required.");
+        }
+
+        if (deliveryFee < 0)
+        {
+            throw new DomainValidationException("Delivery fee must be non-negative.");
+        }
+
+        if (coupon is not null && coupon.DiscountValue < 0)
+        {
+            throw new DomainValidationException("Coupon discount must be non-negative.");
+        }
+
+        var itemList = items?.ToList() ?? new List<OrderItem>();
+
+        return new Order(
+            Guid.NewGuid(),
+            orderCode.Trim(),
+            createdAt,
+            customer,
+            restaurant,
+            type,
+            deliveryFee,
+            coupon,
+            itemList);
+    }
+
+    public void AddItem(OrderItem item)
+    {
+        if (item is null)
+        {
+            throw new DomainValidationException("Item is required.");
+        }
+
+        _items.Add(item);
+        RecalculateTotals();
+    }
+
+    public void RemoveItemByProductId(string productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+        {
+            throw new DomainValidationException("Product id is required.");
+        }
+
+        var item = _items.FirstOrDefault(i => i.Product.ProductId == productId);
+        if (item is null)
+        {
+            throw new BusinessRuleViolationException("Item not found for the product.");
+        }
+
+        _items.Remove(item);
+        RecalculateTotals();
+    }
+
+    public void ApplyCoupon(Coupon coupon)
+    {
+        if (coupon is null)
+        {
+            throw new DomainValidationException("Coupon is required.");
+        }
+
+        if (coupon.DiscountValue < 0)
+        {
+            throw new DomainValidationException("Coupon discount must be non-negative.");
+        }
+
+        Coupon = coupon;
+        RecalculateTotals();
+    }
+
+    public void ChangeStatus(OrderStatus newStatus)
+    {
+        if (newStatus == Status)
+        {
+            return;
+        }
+
+        if (!AllowedTransitions.TryGetValue(Status, out var allowed) || !allowed.Contains(newStatus))
+        {
+            throw new BusinessRuleViolationException(
+                $"Invalid status transition from {Status} to {newStatus}.");
+        }
+
+        Status = newStatus;
+    }
+
+    public void Cancel()
+    {
+        if (Status == OrderStatus.Delivered)
+        {
+            throw new BusinessRuleViolationException("Delivered orders cannot be cancelled.");
+        }
+
+        ChangeStatus(OrderStatus.Cancelled);
+    }
+
+    public void UpdateDeliveryFee(decimal deliveryFee)
+    {
+        if (deliveryFee < 0)
+        {
+            throw new DomainValidationException("Delivery fee must be non-negative.");
+        }
+
+        DeliveryFee = deliveryFee;
+        RecalculateTotals();
+    }
+
+    private void RecalculateTotals()
+    {
+        var itemsTotal = _items.Sum(item => item.TotalItemValue);
+        var total = itemsTotal + DeliveryFee - DiscountValue;
+        OrderTotal = total < 0 ? 0 : total;
+    }
+}
