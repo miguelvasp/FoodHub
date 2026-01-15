@@ -26,6 +26,41 @@ docker compose up --build
 - Swagger: http://localhost:8080/swagger
 - Health: http://localhost:8080/health
 
+## Exemplo de payload (Create Order)
+```
+{
+  "code": "ORD-001",
+  "orderedAt": "2026-01-14T10:00:00Z",
+  "customer": {
+    "id": "cust-1",
+    "name": "Alice"
+  },
+  "restaurant": {
+    "id": "rest-1",
+    "name": "Main Street"
+  },
+  "items": [
+    {
+      "product": {
+        "id": "prod-1",
+        "description": "Burger"
+      },
+      "quantity": 2,
+      "unitPrice": 10.0,
+      "notes": "No onions",
+      "addonsValue": 1.5
+    }
+  ],
+  "deliveryFee": 5.0,
+  "couponCode": "OFF10",
+  "orderType": "Delivery"
+}
+```
+
+## Observacoes sobre Version
+- Atualizacoes (PUT) exigem o campo `version`.
+- Conflitos de concorrencia retornam HTTP 409.
+
 ## Variaveis de ambiente (Docker)
 - `ASPNETCORE_ENVIRONMENT=Development` (habilita Swagger)
 - `Mongo__ConnectionString` (ex.: `mongodb://mongodb:27017`)

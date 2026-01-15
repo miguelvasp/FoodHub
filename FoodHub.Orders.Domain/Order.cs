@@ -114,6 +114,17 @@ public sealed class Order
 
         var itemList = items?.ToList() ?? new List<OrderItem>();
 
+        // Invariante de criação: um pedido precisa ter ao menos 1 item.
+        if (itemList.Count == 0)
+        {
+            throw new DomainValidationException("Order must contain at least one item.");
+        }
+
+        if (itemList.Any(i => i is null))
+        {
+            throw new DomainValidationException("Order items cannot be null.");
+        }
+
         var order = new Order(
             Guid.NewGuid(),
             orderCode.Trim(),
@@ -126,6 +137,7 @@ public sealed class Order
             itemList,
             OrderStatus.Pending,
             0);
+
         order.AddDomainEvent(new OrderCreatedEvent(order.CreateSnapshot(), DateTime.UtcNow));
         return order;
     }
@@ -168,12 +180,22 @@ public sealed class Order
             throw new DomainValidationException("Delivery fee must be non-negative.");
         }
 
+        if (version < 0)
+        {
+            throw new DomainValidationException("Version must be non-negative.");
+        }
+
         if (coupon is not null && string.IsNullOrWhiteSpace(coupon.Code))
         {
             throw new DomainValidationException("Coupon code is required.");
         }
 
         var itemList = items?.ToList() ?? new List<OrderItem>();
+
+        if (itemList.Any(i => i is null))
+        {
+            throw new DomainValidationException("Order items cannot be null.");
+        }
 
         return new Order(
             orderId,
@@ -196,8 +218,13 @@ public sealed class Order
             throw new DomainValidationException("Item is required.");
         }
 
+        EnsureOrderIsModifiable();
+
         _items.Add(item);
         RecalculateTotals();
+
+        IncrementVersion();
+        MarkUpdated();
     }
 
     public void RemoveItemByProductId(string productId)
@@ -205,6 +232,18 @@ public sealed class Order
         if (string.IsNullOrWhiteSpace(productId))
         {
             throw new DomainValidationException("Product id is required.");
+        }
+
+        EnsureOrderIsModifiable();
+
+        // Evita deixar o pedido em um estado inválido (sem itens).
+        if (_items.Count == 1)
+        {
+            var onlyItem = _items[0];
+            if (onlyItem.Product.ProductId == productId)
+            {
+                throw new BusinessRuleViolationException("Order cannot have zero items.");
+            }
         }
 
         var item = _items.FirstOrDefault(i => i.Product.ProductId == productId);
@@ -216,6 +255,9 @@ public sealed class Order
         _items.Remove(item);
         AddDomainEvent(new ItemRemovedEvent(CreateSnapshot(), item.Product, DateTime.UtcNow));
         RecalculateTotals();
+
+        IncrementVersion();
+        MarkUpdated();
     }
 
     public void ApplyCoupon(Coupon coupon)
@@ -230,8 +272,13 @@ public sealed class Order
             throw new DomainValidationException("Coupon code is required.");
         }
 
+        EnsureOrderIsModifiable();
+
         Coupon = coupon;
         RecalculateTotals();
+
+        IncrementVersion();
+        MarkUpdated();
     }
 
     public void ChangeStatus(OrderStatus newStatus)
@@ -249,12 +296,16 @@ public sealed class Order
 
         var previousStatus = Status;
         Status = newStatus;
+
+        IncrementVersion();
         AddDomainEvent(new StatusChangedEvent(CreateSnapshot(), previousStatus, newStatus, DateTime.UtcNow));
 
         if (newStatus == OrderStatus.Confirmed)
         {
             AddDomainEvent(new OrderConfirmedEvent(CreateSnapshot(), DateTime.UtcNow));
         }
+
+        MarkUpdated();
     }
 
     public void Cancel()
@@ -275,8 +326,18 @@ public sealed class Order
             throw new DomainValidationException("Delivery fee must be non-negative.");
         }
 
+        EnsureOrderIsModifiable();
+
+        if (deliveryFee == DeliveryFee)
+        {
+            return;
+        }
+
         DeliveryFee = deliveryFee;
         RecalculateTotals();
+
+        IncrementVersion();
+        MarkUpdated();
     }
 
     private void RecalculateTotals()
@@ -313,6 +374,11 @@ public sealed class Order
 
     private void AddDomainEvent(IDomainEvent domainEvent)
     {
+        if (domainEvent is null)
+        {
+            throw new DomainValidationException("Domain event is required.");
+        }
+
         _domainEvents.Add(domainEvent);
     }
 
@@ -326,5 +392,26 @@ public sealed class Order
             OrderTotal,
             Customer,
             Restaurant);
+    }
+
+    private void IncrementVersion()
+    {
+        checked
+        {
+            Version++;
+        }
+    }
+
+    private void EnsureOrderIsModifiable()
+    {
+        if (Status == OrderStatus.Delivered)
+        {
+            throw new BusinessRuleViolationException("Delivered orders cannot be modified.");
+        }
+
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new BusinessRuleViolationException("Cancelled orders cannot be modified.");
+        }
     }
 }
